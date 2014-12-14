@@ -1,7 +1,7 @@
 module Hlog where
 
 import Data.Maybe
-import Data.Time (formatTime, getCurrentTime, getCurrentTimeZone, utcToLocalTime)
+import Data.Time (formatTime, getZonedTime)
 import System.FilePath ((</>))
 import System.Directory (doesFileExist)
 import System.Environment (getEnv)
@@ -22,9 +22,8 @@ logFile = do
 
 timestamp :: IO String
 timestamp = do
-  time <- getCurrentTime
-  tz <- getCurrentTimeZone
-  return $ formatTime defaultTimeLocale dtFmt (utcToLocalTime tz time)
+  time <- getZonedTime
+  return $ formatTime defaultTimeLocale dtFmt time
 
 
 hlog :: String -> IO ()
