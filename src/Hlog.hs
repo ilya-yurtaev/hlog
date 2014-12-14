@@ -1,9 +1,7 @@
 module Hlog where
 
-import Data.Maybe
 import Data.Time (formatTime, getZonedTime)
 import System.FilePath ((</>))
-import System.Directory (doesFileExist)
 import System.Environment (getEnv)
 import System.Locale (defaultTimeLocale)
 import Text.Printf
