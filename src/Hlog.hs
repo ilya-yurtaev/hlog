@@ -1,7 +1,11 @@
-module Hlog where
+module Hlog
+  ( hlog
+  , showLatest
+  , showTodayEntries
+  , undo
+  ) where
 
-import Control.Monad
-import Control.Applicative
+import Control.Applicative ((<$>), (<*>))
 import Data.Map (fromList, lookup)
 import Data.List (delete)
 import Data.List.Utils (startswith)
@@ -11,7 +15,7 @@ import System.Directory (renameFile)
 import System.Environment (getEnv)
 import System.FilePath ((</>))
 import System.Locale (defaultTimeLocale)
-import Text.Printf
+import Text.Printf (printf)
 
 
 delimiter = " | "
@@ -20,23 +24,13 @@ dateFmt = "%Y-%m-%d"
 
 timeFmt = "%H:%M:%S"
 
+entryFmt = "%s%s%s\n" -- timestamp delimiter message
+
 dateTimeFmt = unwords [dateFmt, timeFmt]
 
 
-showHelp :: IO ()
-showHelp = print "help"
-
-
-timeRepr :: String -> IO String
-timeRepr fmtStr = do
-  time <- getZonedTime
-  return $ formatTime defaultTimeLocale fmtStr time
-
-
 absPath :: String -> IO FilePath
-absPath fn = do
-  homeDir <- getEnv "HOME"
-  return $ homeDir </> fn
+absPath fn = return <$> (\x -> x </> fn) =<< (getEnv "HOME")
 
 
 logFile :: IO FilePath
@@ -47,10 +41,14 @@ tmpFile :: IO FilePath
 tmpFile = absPath ".hlog.tmp"
 
 
+timeRepr :: String -> IO String
+timeRepr fmtStr = return <$> formatTime defaultTimeLocale fmtStr =<< getZonedTime
+
+
 mkentry :: String -> IO String
 mkentry msg = do
-  ts <- mktimestamp
-  return $ printf "%s%s%s\n" ts delimiter msg
+  timestamp <- mktimestamp
+  return $ printf entryFmt timestamp delimiter msg
 
 
 mktimestamp :: IO String
@@ -58,19 +56,15 @@ mktimestamp = timeRepr dateTimeFmt
 
 
 undo :: IO ()
-undo = do
-  -- deletes last entry
-  entries <- getEntries
-  fn <- logFile
-  saveEntries $ init entries
+undo = (init <$> getEntries) >>= saveEntries
 
 
 stripDateTime :: String -> String
-stripDateTime entry = last $ split delimiter entry
+stripDateTime = last . (split delimiter)
 
 
 stripDate :: String -> String
-stripDate entry = unwords $ tail $ words entry
+stripDate = (unwords . tail . words)
 
 
 enumerate :: [String] -> String
@@ -80,30 +74,33 @@ enumerate entries = unlines $ map addNum $ zip (map show [1..]) (map stripDate e
 
 todayEntries :: IO [String]
 todayEntries = do
+  td <- timeRepr dateFmt
   entries <- getEntries
-  filterM isToday entries
+  return $ filter (startswith td) entries
 
 
 showTodayEntries :: IO ()
 showTodayEntries = do
   entries <- todayEntries
-  putStrLn $ case entries of [] -> "No entries for today"
-                             _  -> enumerate entries
+  putStrLn $ case entries of
+    [] -> "No entries for today"
+    _  -> enumerate entries
 
 
-deleteEntry index = do
-  entries <- todayEntries
-  saveEntries $ delete (entries !! index) entries
-
-
-isToday :: String -> IO Bool
-isToday x = do
-  td <- timeRepr dateFmt
-  return $ startswith td x
+deleteEntry :: Int -> IO ()
+deleteEntry index = saveEntries <$> (\es -> delete (es !! index) es) =<< todayEntries
 
 
 getEntries :: IO [String]
 getEntries = filter (not . null) <$> lines <$> (readFile =<< logFile)
+
+
+showLatest :: IO ()
+showLatest = do
+  entries <- getEntries
+  putStrLn $ case entries of
+    [] -> "No entries at all"
+    _  -> unlines $ (reverse . (take 10) . reverse) entries
 
 
 saveEntries :: [String] -> IO ()

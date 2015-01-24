@@ -1,7 +1,8 @@
 module Main where
 
 import System.Environment (getArgs)
-import Hlog (hlog, showTodayEntries, undo)
+import Hlog
+{-(hlog, showTodayEntries, undo)-}
 
 
 main :: IO ()
@@ -10,12 +11,12 @@ main = do
   case args of
        [] -> do
          putStrLn "No message supplied"
-         showTodayEntries
+         showLatest
 
        ["today"] -> showTodayEntries
 
        ["undo"] -> do
          undo
-         showTodayEntries
+         showLatest
 
        _  -> hlog $ unwords args
